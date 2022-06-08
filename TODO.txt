@@ -1,0 +1,17 @@
+Things to improve:
+
+
+Moovement:
+- When jumping on the celing, add a bit of time before falling down
+- Allow to trigger the jump button ever few frames after lifting the ground
+- For the first few frames of jump, reduce the gravity if the jump button is pressed to allow higher jumps.
+
+Graphics:
+- Add the proper assets for the exit and lamps
+- Add a particle system when collecting torches
+- Add a particle system when landing.
+- Improve the glowing effect (Maybe adding a shader)
+
+Gameplay:
+- Add win and death screens
+- Add the possibility to switch between different levels
