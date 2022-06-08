@@ -1,6 +1,6 @@
 import pygame
 import player
-import custom_group
+import custom_group, lamp, target
 
 from Settings import *
 
@@ -27,9 +27,18 @@ class World:
         self.ground_topleftright = pygame.transform.scale(self.ground_topleftright, (TILE_SIZE, TILE_SIZE))
 
 
+        # Background properties
+        self.background = pygame.image.load(os.path.join(DATA_DIR, "background", "background.png")).convert()
+        new_dim = [self.background.get_rect().width * SCALE_FACTOR,
+            self.background.get_rect().height * SCALE_FACTOR]
+        self.background = pygame.transform.scale(self.background, new_dim)
+        self.distance_factor = 0.2
 
-        self.background = pygame.Surface(WINDOW_SIZE)
-        self.background.fill((0,0,0))
+
+        self.darkness = pygame.Surface(WINDOW_SIZE)
+        self.darkness.fill((50, 50, 50))
+
+        
 
 
         self.player = None
@@ -40,18 +49,69 @@ class World:
 
         self.visible_group = custom_group.MyGroup(self.camera)
         self.collision_group = pygame.sprite.Group()
+        self.glowing_group = pygame.sprite.Group()
+        self.collectable_group = pygame.sprite.Group()
+
+    def background_blit(self, screen):
+        origin = -self.camera * self.distance_factor
+        
+        screen_width = screen.get_rect().width
+        screen_height = screen.get_rect().height
+
+        background_width = self.background.get_rect().width
+        background_height = self.background.get_rect().height
+
+
+        origin.x = origin.x % background_width - background_width
+        origin.y = origin.y % background_height - background_height
+
+
+        start_x = origin.x
+        while start_x < screen_width:
+            start_y = origin.y
+            while start_y < screen_width:
+                screen.blit(self.background, (start_x, start_y))
+                start_y += background_height
+            start_x += background_width
+
+
+
+
+
 
     def update(self, screen):
         # Update all 
         self.visible_group.update(self.collision_group)
         
         self.player.update_camera(self.camera, screen.get_width(), screen.get_height())
+        self.player.update_collectable(self.collectable_group)
         #for sprite in self.visible_group.sprites():
         #    sprite.update_rect(self.camera)
 
-
-        screen.blit(self.background, (0,0))
+        self.background_blit(screen)
         self.visible_group.draw(screen)
+
+        # Add the darkness
+        self.update_glowing(screen)
+
+    def update_glowing(self, screen):
+        
+        # Add the glowing around all the sprites inside the glowing group
+        new_darkness = self.darkness.copy()
+        for sprite in self.glowing_group.sprites():
+            glowing_surface = sprite.get_glowing_surface()
+            glowing_rect = glowing_surface.get_rect()
+            pos = list(sprite.rect.center)
+            pos[0] -= glowing_rect.width / 2 
+            pos[1] -= glowing_rect.height / 2
+
+            pos[0] -= self.camera.x
+            pos[1] -= self.camera.y
+
+            new_darkness.blit(glowing_surface, pos,  special_flags = pygame.BLEND_SUB)
+
+        screen.blit(new_darkness, (0,0), special_flags = pygame.BLEND_SUB)
+        #screen.blit(glowing_surface, pos, special_flags = pygame.BLEND_ADD)
 
     def update_tile_images(self):
         for tile in self.visible_group:
@@ -105,22 +165,54 @@ class World:
                 
 
 
-    def create_world(self, data_file = DATA):
+    def create_world(self, data_file = DATA_WORLD, offset_tiles = 5):
+        maxx = 0
+        maxy = 0
         with open(data_file, "r") as fp:
             for yindex, line in enumerate(fp.readlines()):
                 for xindex, character in enumerate(line.strip()):
                     x = xindex * TILE_SIZE
                     y = yindex * TILE_SIZE
 
+                    if x > maxx:
+                        maxx = x
+                    if y > maxy: 
+                        maxy = y
+
                     if character == "0":
                         continue
                     elif character == "1":
-                        tile = Tile(x, y, self.visible_group, self.collision_group)
+                        Tile(x, y, self.visible_group, self.collision_group)
                     elif character == "P":
-                        self.player = player.Player(x, y, self.visible_group)
+                        self.player = player.Player(x, y, self.visible_group, self.glowing_group)
+                    elif character == "L":
+                        lamp.Lamp(x, y, self.visible_group, self.glowing_group, self.collectable_group)
+                    elif character == "T":
+                        target.Target(x, y, self.visible_group, self.glowing_group, self.collectable_group)
 
         #if self.player is not None:
         #    self.visible_group.move_to_front(self.player)
+
+        # Fill the border with tiles
+        for x in range(offset_tiles):
+            for y in range(offset_tiles):
+                # Create the tiles in the corners
+                Tile(-(x+1) * TILE_SIZE, -(y+1) * TILE_SIZE, self.visible_group, self.collision_group)
+                Tile(maxx + x * TILE_SIZE, -(y+1) * TILE_SIZE, self.visible_group, self.collision_group)
+                Tile(-(x+1) * TILE_SIZE, maxy +y * TILE_SIZE, self.visible_group, self.collision_group)
+                Tile(maxx + x * TILE_SIZE, maxy + y * TILE_SIZE, self.visible_group, self.collision_group)
+
+        
+        for x in range(offset_tiles):
+            for y in range(maxy // TILE_SIZE):
+                Tile(-(x+1) * TILE_SIZE, y * TILE_SIZE, self.visible_group, self.collision_group)
+                Tile(maxx+ x * TILE_SIZE, y * TILE_SIZE, self.visible_group, self.collision_group)
+
+        for y in range(offset_tiles):
+            for x in range(maxx // TILE_SIZE):
+                Tile(x * TILE_SIZE, -(y+1) * TILE_SIZE, self.visible_group, self.collision_group)
+                Tile(x * TILE_SIZE, maxy + y * TILE_SIZE, self.visible_group, self.collision_group)
+
 
         self.update_tile_images()
 

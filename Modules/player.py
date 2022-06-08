@@ -2,14 +2,19 @@ import pygame
 import os
 
 from Settings import *
-
-class Player(pygame.sprite.Sprite):
+import lamp
+class Player(lamp.GlowingSprite):
 
     def __init__(self, x, y, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.kind = "player"
         self._layer = 2
+
+        # Properties
+        self.remaining_oil = 100
+        self.drop_oil_rate = 0.2
+
 
         #self.image = pygame.Surface((64, 64*2))
         #self.image.fill(PLAYER_COLOR)
@@ -22,14 +27,32 @@ class Player(pygame.sprite.Sprite):
         self.facing_left_surface = pygame.transform.flip(self.image, True, False)
 
 
-        self.rect = self.image.get_rect()
+        # Load animations
+        self.animations = {
+            "fall_left" : [self.facing_left_surface],
+            "fall_right" : [self.facing_right_surface]}
 
+        self.load_animations( os.path.join(PLAYER_ANIMATION_DATA, "walk"), "walk_right", "walk", 6, flip = False)
+        self.load_animations( os.path.join(PLAYER_ANIMATION_DATA, "walk"), "walk_left", "walk", 6, flip = True)
+        self.load_animations( os.path.join(PLAYER_ANIMATION_DATA, "idle"), "idle_right", "idle", 13, 6, False)
+        self.load_animations( os.path.join(PLAYER_ANIMATION_DATA, "idle"), "idle_left", "idle", 13, 6, True)
+        self.load_animations( os.path.join(PLAYER_ANIMATION_DATA, "fall"), "fall_right", "fall", 18, 13, False)
+        self.load_animations( os.path.join(PLAYER_ANIMATION_DATA, "fall"), "fall_left", "fall", 18, 13, True)
+
+        self.status = "idle"
+        self.current_frame = 0
+
+        self.animation_speed = {"idle" : 0.1, "walk" : 0.25, "fall" : 0.14}
+
+
+        # Hitbox and rect
+        self.rect = self.image.get_rect()
         self.rect.centerx = x
         self.rect.centery = y
 
         self.hitbox = self.rect.inflate(-20, 0)
 
-
+        # Moovment
         self.direction = pygame.math.Vector2(0,0)
         self.speed = 5
         self.max_vertical_speed = 5
@@ -37,20 +60,74 @@ class Player(pygame.sprite.Sprite):
         self.jump_speed = 5.6
 
         self.is_going_left = False
-        self.is_going_right = False
-
+        self.is_going_right = True
         self.is_grounded = False
+
+        # Glowing
+        self.glowing_color = (50, 40, 40)
+        self.glowing_radius = 150
+
+    
+
+
+    def load_animations(self, directory, animation_name, basename, end_frame, start_frame = 0, flip = False):
+        frames = []
+        for i in range(start_frame, end_frame):
+            filename = os.path.join(directory, "{}{:04d}.png".format(basename, i))
+            image = pygame.image.load(filename).convert_alpha()
+            image = pygame.transform.scale(image, (TILE_SIZE, TILE_SIZE))
+            if flip:
+                image = pygame.transform.flip(image, True, False)
+            frames.append(image)
+        
+        self.animations[animation_name] = frames
+            
 
 
 
     def update_rect(self):
         self.rect.center = self.hitbox.center
+    
+
+    def update_status(self):
+        if self.is_grounded:
+            if abs(self.direction.x) > EPSILON:
+                self.status = "walk"
+            else:
+                self.status = "idle"
+        else:
+            self.status = "fall" 
+
 
     def update_image(self):
+        current_animation = self.status + "_"
         if self.is_going_left:
-            self.image = self.facing_left_surface
+            current_animation += "left"
         elif self.is_going_right:
-            self.image = self.facing_right_surface
+            current_animation += "right"
+        
+        # Update frames
+        self.current_frame += self.animation_speed[self.status]
+
+        animation = self.animations[current_animation]
+
+        total_frames = len(animation)
+        self.image = animation[int(self.current_frame) % total_frames]
+
+    def update_oil(self):
+        self.remaining_oil -= self.drop_oil_rate
+        
+        if self.remaining_oil < 0:
+            self.remaining_oil = 0
+        self.glowing_radius = self.remaining_oil * RADIUS_OIL_SCALE
+
+    def update_collectable(self, collectable_group):
+        for sprite in collectable_group.sprites():
+            if sprite.rect.colliderect(self.hitbox):
+                if sprite.kind == "lamp":
+                    self.remaining_oil += sprite.oil
+                    sprite.kill()
+
 
     def update(self, collision_group):
         self.update_direction()
@@ -64,8 +141,10 @@ class Player(pygame.sprite.Sprite):
 
 
         self.update_rect()
+        self.update_oil()
 
-        
+        self.update_status()
+
 
 
     def update_camera(self, camera_origin, screen_width, screen_height):
@@ -111,7 +190,6 @@ class Player(pygame.sprite.Sprite):
                     self.direction.y = 0
 
 
-
         if not left_right:
             if not is_colliding:
                 self.is_grounded = False
@@ -130,8 +208,8 @@ class Player(pygame.sprite.Sprite):
             self.is_going_right= True
         else:
             self.direction.x = 0
-            self.is_going_left = False
-            self.is_going_right= False
+            #self.is_going_left = False
+            #self.is_going_right= False
 
 
         if keys[pygame.K_SPACE]:
