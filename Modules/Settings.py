@@ -13,7 +13,7 @@ RADIUS_OIL_SCALE = 1.5
 
 
 TILE_COLOR = (255, 255, 255)
-DATA_WORLD = os.path.join("data", "world.txt")
+DATA_WORLD = os.path.join("data", "level_0.txt")
 DATA_DIR = "data"
 PLAYER_ANIMATION_DATA = os.path.join("data", "miner")
 TILE_SIZE = 64

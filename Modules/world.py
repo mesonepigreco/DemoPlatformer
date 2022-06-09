@@ -53,10 +53,12 @@ class World:
         self.collision_group = pygame.sprite.Group()
         self.glowing_group = pygame.sprite.Group()
         self.collectable_group = pygame.sprite.Group()
+        self.winning_group = pygame.sprite.Group()
 
         # General info
         self.pause = False
         self.level = 0
+        self.max_level = len([x for x in os.listdir(DATA_DIR) if x.startswith("level_") and x.endswith(".txt")])
         
 
     def background_blit(self, screen):
@@ -86,6 +88,14 @@ class World:
         if self.player.remaining_oil <= 0:
             return True
         return False
+
+    def check_win(self):
+        for sprite in self.winning_group.sprites():
+            if sprite.rect.colliderect(self.player.hitbox):
+                return True
+        return False
+        
+
 
     def blit_text_on_center(self, text, surface, below = None, offset = 50):
 
@@ -129,16 +139,46 @@ class World:
             t1 = self.blit_text_on_center("The moster of darkness got you!", screen)
             t2 = self.blit_text_on_center("Press enter to restart...", screen, below = t1)
 
+            
+            keys = pygame.key.get_pressed()
+            if keys[pygame.K_RETURN]:
+                self.start_level()
+                self.pause = False
 
-    def start_level(self, level_file):
+        if self.check_win():
+
+            if self.pause == False:
+                self.level += 1
+            self.pause = True
+
+            if self.level < self.max_level:
+                t1 = self.blit_text_on_center("Huppy! We got an escape!", screen)
+                t2 = self.blit_text_on_center("Press enter to continue...", screen, below = t1)
+            else:
+                # We finished the game
+                t1 = self.blit_text_on_center("GAME COMPLETED!", screen)
+                t2 = self.blit_text_on_center("Press enter to restart the game", screen, below = t1)
+
+            keys = pygame.key.get_pressed()
+            if keys[pygame.K_RETURN]:
+
+                if self.level == self.max_level:
+                    self.level = 0
+                self.start_level()
+                self.pause = False
+
+
+    def start_level(self):
         # Reset the group
         self.glowing_group.empty()
-        self.collectable_group.empty()
+        self.collision_group.empty()
         self.visible_group.empty()
         self.collectable_group.empty()
+        self.winning_group.empty()
 
         self.player = None
 
+        level_file = os.path.join(DATA_DIR, "level_{}.txt".format(self.level))
         self.create_world(level_file)
 
 
@@ -158,9 +198,9 @@ class World:
             pos[0] -= self.camera.x
             pos[1] -= self.camera.y
 
-            new_darkness.blit(glowing_surface, pos,  special_flags = pygame.BLEND_SUB)
+            new_darkness.blit(glowing_surface, pos,  special_flags = pygame.BLEND_ADD)
 
-        screen.blit(new_darkness, (0,0), special_flags = pygame.BLEND_SUB)
+        screen.blit(new_darkness, (0,0), special_flags = pygame.BLEND_MULT)
         #screen.blit(glowing_surface, pos, special_flags = pygame.BLEND_ADD)
 
     def update_tile_images(self):
@@ -238,7 +278,7 @@ class World:
                     elif character == "L":
                         lamp.Lamp(x, y, self.visible_group, self.glowing_group, self.collectable_group)
                     elif character == "T":
-                        target.Target(x, y, self.visible_group, self.glowing_group, self.collectable_group)
+                        target.Target(x, y, self.visible_group, self.glowing_group, self.winning_group)
 
         #if self.player is not None:
         #    self.visible_group.move_to_front(self.player)
@@ -248,20 +288,20 @@ class World:
             for y in range(offset_tiles):
                 # Create the tiles in the corners
                 Tile(-(x+1) * TILE_SIZE, -(y+1) * TILE_SIZE, self.visible_group, self.collision_group)
-                Tile(maxx + x * TILE_SIZE, -(y+1) * TILE_SIZE, self.visible_group, self.collision_group)
-                Tile(-(x+1) * TILE_SIZE, maxy +y * TILE_SIZE, self.visible_group, self.collision_group)
-                Tile(maxx + x * TILE_SIZE, maxy + y * TILE_SIZE, self.visible_group, self.collision_group)
+                Tile(maxx + (x+1) * TILE_SIZE, -(y+1) * TILE_SIZE, self.visible_group, self.collision_group)
+                Tile(-(x+1) * TILE_SIZE, maxy +(y+1) * TILE_SIZE, self.visible_group, self.collision_group)
+                Tile(maxx + (x + 1) * TILE_SIZE, maxy + (1 + y) * TILE_SIZE, self.visible_group, self.collision_group)
 
         
         for x in range(offset_tiles):
             for y in range(maxy // TILE_SIZE):
                 Tile(-(x+1) * TILE_SIZE, y * TILE_SIZE, self.visible_group, self.collision_group)
-                Tile(maxx+ x * TILE_SIZE, y * TILE_SIZE, self.visible_group, self.collision_group)
+                Tile(maxx+ (x+1) * TILE_SIZE, y * TILE_SIZE, self.visible_group, self.collision_group)
 
         for y in range(offset_tiles):
             for x in range(maxx // TILE_SIZE):
                 Tile(x * TILE_SIZE, -(y+1) * TILE_SIZE, self.visible_group, self.collision_group)
-                Tile(x * TILE_SIZE, maxy + y * TILE_SIZE, self.visible_group, self.collision_group)
+                Tile(x * TILE_SIZE, maxy + (1 + y) * TILE_SIZE, self.visible_group, self.collision_group)
 
 
         self.update_tile_images()

@@ -64,7 +64,7 @@ class Player(lamp.GlowingSprite):
         self.is_grounded = False
 
         # Glowing
-        self.glowing_color = (50, 40, 40)
+        #self.glowing_color = (50, 40, 40)
         self.glowing_radius = 150
 
     
