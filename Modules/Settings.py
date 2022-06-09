@@ -11,6 +11,7 @@ CAMERA_YBORDER = 160
 RADIUS_OIL_SCALE = 1.5
 
 
+
 TILE_COLOR = (255, 255, 255)
 DATA_WORLD = os.path.join("data", "world.txt")
 DATA_DIR = "data"
@@ -18,6 +19,12 @@ PLAYER_ANIMATION_DATA = os.path.join("data", "miner")
 TILE_SIZE = 64
 
 SCALE_FACTOR = TILE_SIZE // 16
+
+FONT_LOCATION = os.path.join(DATA_DIR, "PressStart2P-Regular.ttf")
+FONT_SIZE_TITLE = 20
+FONT_SIZE_SMALL = 12
+
+
 
 GROUND_DIR = os.path.join("data", "ground")
 GROUND_TOP = os.path.join(GROUND_DIR, "ground_1.png")

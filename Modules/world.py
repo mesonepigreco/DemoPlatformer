@@ -38,8 +38,10 @@ class World:
         self.darkness = pygame.Surface(WINDOW_SIZE)
         self.darkness.fill((50, 50, 50))
 
+        # The font properties
+        self.font_small = pygame.font.Font(FONT_LOCATION, FONT_SIZE_SMALL)
+        self.font_title = pygame.font.Font(FONT_LOCATION, FONT_SIZE_TITLE)
         
-
 
         self.player = None
         self.tiles = []
@@ -51,6 +53,11 @@ class World:
         self.collision_group = pygame.sprite.Group()
         self.glowing_group = pygame.sprite.Group()
         self.collectable_group = pygame.sprite.Group()
+
+        # General info
+        self.pause = False
+        self.level = 0
+        
 
     def background_blit(self, screen):
         origin = -self.camera * self.distance_factor
@@ -75,13 +82,35 @@ class World:
             start_x += background_width
 
 
+    def check_death(self):
+        if self.player.remaining_oil <= 0:
+            return True
+        return False
+
+    def blit_text_on_center(self, text, surface, below = None, offset = 50):
+
+        text_surface = self.font_title.render(text, False, (255, 255, 255), (0,0,0))
+        text_surface.set_colorkey((0,0,0))
+
+        text_rect = text_surface.get_rect()
+        screen_rect = surface.get_rect()
+
+        text_rect.center = screen_rect.center
+
+        if below is not None:
+            text_rect.midtop = below.midbottom
+            text_rect.y += offset
 
 
+        surface.blit(text_surface, text_rect)
+        return text_rect
 
 
     def update(self, screen):
         # Update all 
-        self.visible_group.update(self.collision_group)
+
+        if not self.pause:
+            self.visible_group.update(self.collision_group)
         
         self.player.update_camera(self.camera, screen.get_width(), screen.get_height())
         self.player.update_collectable(self.collectable_group)
@@ -93,6 +122,27 @@ class World:
 
         # Add the darkness
         self.update_glowing(screen)
+
+        # Check death
+        if self.check_death():
+            self.pause = True
+            t1 = self.blit_text_on_center("The moster of darkness got you!", screen)
+            t2 = self.blit_text_on_center("Press enter to restart...", screen, below = t1)
+
+
+    def start_level(self, level_file):
+        # Reset the group
+        self.glowing_group.empty()
+        self.collectable_group.empty()
+        self.visible_group.empty()
+        self.collectable_group.empty()
+
+        self.player = None
+
+        self.create_world(level_file)
+
+
+
 
     def update_glowing(self, screen):
         

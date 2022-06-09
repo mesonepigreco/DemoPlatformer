@@ -23,5 +23,6 @@ while running:
             running = False
 
     my_world.update(screen)
+    
     pygame.display.flip()
     
