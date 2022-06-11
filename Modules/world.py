@@ -1,7 +1,7 @@
 import pygame
 import player
-import custom_group, lamp, target
-
+import custom_group, lamp, target, enemy
+import ui
 from Settings import *
 
 
@@ -42,7 +42,6 @@ class World:
         self.font_small = pygame.font.Font(FONT_LOCATION, FONT_SIZE_SMALL)
         self.font_title = pygame.font.Font(FONT_LOCATION, FONT_SIZE_TITLE)
         
-
         self.player = None
         self.tiles = []
 
@@ -54,11 +53,28 @@ class World:
         self.glowing_group = pygame.sprite.Group()
         self.collectable_group = pygame.sprite.Group()
         self.winning_group = pygame.sprite.Group()
+        self.enemy_group = pygame.sprite.Group()
 
         # General info
         self.pause = False
         self.level = 0
         self.max_level = len([x for x in os.listdir(DATA_DIR) if x.startswith("level_") and x.endswith(".txt")])
+        self.ui = ui.UserInterface(self.player, 0, self.font_small)
+
+        # Music
+        self.music = pygame.mixer.Sound(os.path.join(DATA_DIR, "main-theme.wav"))
+        self.music.set_volume(0.4)
+        self.music.play(-1)
+
+    def __setattr__(self, __name, __value):
+        if __name == "player":
+            if "ui" in self.__dict__:
+                self.ui.player = __value   
+
+        super().__setattr__(__name, __value)
+        
+    
+
         
 
     def background_blit(self, screen):
@@ -116,14 +132,23 @@ class World:
         return text_rect
 
 
+    def check_enemy_collision(self):
+        for sprite in self.enemy_group.sprites():
+            if self.player.hitbox.colliderect(sprite.hitbox):
+                self.player.push_back(sprite.push_back, sprite.direction.x - self.player.direction.x, 
+                    sprite.steal_oil)
+
+
     def update(self, screen):
         # Update all 
 
         if not self.pause:
             self.visible_group.update(self.collision_group)
         
+        self.check_enemy_collision()
+
         self.player.update_camera(self.camera, screen.get_width(), screen.get_height())
-        self.player.update_collectable(self.collectable_group)
+        self.player.update_collectable(self.collectable_group, self.ui)
         #for sprite in self.visible_group.sprites():
         #    sprite.update_rect(self.camera)
 
@@ -133,9 +158,16 @@ class World:
         # Add the darkness
         self.update_glowing(screen)
 
+        # Update the User Interface
+        self.ui.draw()
+
         # Check death
         if self.check_death():
+
+            if self.pause == False:
+                self.player.sound_death.play()
             self.pause = True
+
             t1 = self.blit_text_on_center("The moster of darkness got you!", screen)
             t2 = self.blit_text_on_center("Press enter to restart...", screen, below = t1)
 
@@ -149,6 +181,7 @@ class World:
 
             if self.pause == False:
                 self.level += 1
+                self.player.sound_target.play()
             self.pause = True
 
             if self.level < self.max_level:
@@ -258,6 +291,8 @@ class World:
     def create_world(self, data_file = DATA_WORLD, offset_tiles = 5):
         maxx = 0
         maxy = 0
+
+        total_lamps = 0
         with open(data_file, "r") as fp:
             for yindex, line in enumerate(fp.readlines()):
                 for xindex, character in enumerate(line.strip()):
@@ -277,8 +312,11 @@ class World:
                         self.player = player.Player(x, y, self.visible_group, self.glowing_group)
                     elif character == "L":
                         lamp.Lamp(x, y, self.visible_group, self.glowing_group, self.collectable_group)
+                        total_lamps += 1
                     elif character == "T":
                         target.Target(x, y, self.visible_group, self.glowing_group, self.winning_group)
+                    elif character == "S":
+                        enemy.Slug(x, y, self.visible_group, self.enemy_group)
 
         #if self.player is not None:
         #    self.visible_group.move_to_front(self.player)
@@ -306,6 +344,8 @@ class World:
 
         self.update_tile_images()
 
+        self.ui.reset_counter(total_lamps)
+
 
 
 class Tile(pygame.sprite.Sprite):
@@ -318,6 +358,8 @@ class Tile(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
+
+        self.friction = 0.18
 
 
     def update(self, dumb = None):

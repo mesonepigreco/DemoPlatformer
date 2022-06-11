@@ -24,6 +24,10 @@ FONT_LOCATION = os.path.join(DATA_DIR, "PressStart2P-Regular.ttf")
 FONT_SIZE_TITLE = 20
 FONT_SIZE_SMALL = 12
 
+GRAVITY = 0.3
+MAX_VERTICAL_SPEED = 5
+AIR_FRICTION = 0.05
+
 
 
 GROUND_DIR = os.path.join("data", "ground")

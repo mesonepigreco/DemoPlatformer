@@ -1,5 +1,7 @@
+import py
 import pygame
 import os
+import math
 
 from Settings import *
 import lamp
@@ -55,17 +57,35 @@ class Player(lamp.GlowingSprite):
         # Moovment
         self.direction = pygame.math.Vector2(0,0)
         self.speed = 5
-        self.max_vertical_speed = 5
-        self.increase_vertical_direction = 0.3
         self.jump_speed = 5.6
 
         self.is_going_left = False
         self.is_going_right = True
         self.is_grounded = False
+        self.current_friction = 0
+
+        # Triggers
+        self.trigger_onfalling = 0 
+        self.onfalling_timeout = 100
+        self.trigger_onceiling = 0
+        self.onceiling_timeout = 200
+        self.trigger_jump = 0
+        self.jump_timeout = 150
+        self.slowdown_gravity = 0.2
+        self.trigger_stun = 0
+        self.stun_timeout = 500
 
         # Glowing
         #self.glowing_color = (50, 40, 40)
         self.glowing_radius = 150
+
+        # Sounds
+        self.sound_jump = pygame.mixer.Sound(os.path.join(DATA_DIR, "sounds", "jump.wav"))
+        self.sound_hit = pygame.mixer.Sound(os.path.join(DATA_DIR, "sounds", "hit.wav"))
+        self.sound_boing = pygame.mixer.Sound(os.path.join(DATA_DIR, "sounds", "boing.wav"))
+        self.sound_target = pygame.mixer.Sound(os.path.join(DATA_DIR, "sounds", "target.wav"))
+        self.sound_death = pygame.mixer.Sound(os.path.join(DATA_DIR, "sounds", "death.wav"))
+        self.sound_collect = pygame.mixer.Sound(os.path.join(DATA_DIR, "sounds", "collect.wav"))
 
     
 
@@ -121,11 +141,13 @@ class Player(lamp.GlowingSprite):
             self.remaining_oil = 0
         self.glowing_radius = self.remaining_oil * RADIUS_OIL_SCALE
 
-    def update_collectable(self, collectable_group):
+    def update_collectable(self, collectable_group, ui_menu):
         for sprite in collectable_group.sprites():
             if sprite.rect.colliderect(self.hitbox):
                 if sprite.kind == "lamp":
                     self.remaining_oil += sprite.oil
+                    ui_menu.collected_lamps += 1
+                    self.sound_collect.play()
                     sprite.kill()
 
 
@@ -183,44 +205,89 @@ class Player(lamp.GlowingSprite):
                 else:
                     if self.direction.y > 0:
                         self.hitbox.bottom = sprite.rect.top
-                        self.is_grounded = True
+                        self.current_friction = sprite.friction
+                        if not self.is_grounded:
+                            self.is_grounded = True
+                            self.sound_boing.play()
                     elif self.direction.y < 0:
                         self.hitbox.top = sprite.rect.bottom 
+                        self.trigger_onceiling = pygame.time.get_ticks()
 
                     self.direction.y = 0
 
 
         if not left_right:
             if not is_colliding:
-                self.is_grounded = False
+
+                if self.is_grounded:
+                    self.is_grounded = False
+                    self.trigger_onfalling = pygame.time.get_ticks()
+
+    def push_back(self, force, direction, remove_oil_value = 0):
+        ticks = pygame.time.get_ticks()
+
+        if ticks - self.trigger_stun > self.stun_timeout:
+            self.sound_hit.play()
+            print("BEFORE DIRECTION:", self.direction.x)
+            self.direction.x = force * math.copysign(1, direction)
+            print("AFTER DIRECTION", self.direction.x)
+            
+            self.trigger_stun = ticks
+
+            self.remaining_oil -= remove_oil_value
+            if self.remaining_oil < 0:
+                self.remaining_oil = 0
+
 
 
     def update_direction(self):
         keys = pygame.key.get_pressed()
+        ticks = pygame.time.get_ticks()
 
-        if keys[pygame.K_LEFT]:
-            self.direction.x = -1
-            self.is_going_left = True
-            self.is_going_right= False
-        elif keys[pygame.K_RIGHT]:
-            self.direction.x = 1
-            self.is_going_left = False
-            self.is_going_right= True
+        moving_force = 1.8
+        if ticks - self.trigger_stun > self.stun_timeout:
+
+
+            if keys[pygame.K_LEFT]:
+                self.direction.x = -moving_force
+                self.is_going_left = True
+                self.is_going_right= False
+            elif keys[pygame.K_RIGHT]:
+                self.direction.x = moving_force
+                self.is_going_left = False
+                self.is_going_right= True
+
+    
+        if self.is_grounded and self.direction.x != 0:
+            sign =  math.copysign(1, self.direction.x)
+            self.direction.x -= sign * self.current_friction 
+
+            if sign * self.direction.x < 0:
+                self.direction.x = 0
         else:
-            self.direction.x = 0
+            self.direction.x -= self.direction.x * AIR_FRICTION
+            if self.direction.y > 0:
+                self.direction.y -= self.direction.y * AIR_FRICTION
             #self.is_going_left = False
             #self.is_going_right= False
 
 
         if keys[pygame.K_SPACE]:
-            if self.is_grounded:
-                self.direction.y = -self.jump_speed
-        
+
+            if ticks - self.trigger_jump > self.jump_timeout:
+                if self.is_grounded or (ticks - self.trigger_onfalling) < self.onfalling_timeout :
+                    self.direction.y = -self.jump_speed
+                    self.trigger_jump = ticks
+                    self.sound_jump.play()
+            
 
 
+        factor = 1
+        if ticks - self.trigger_onceiling < self.onceiling_timeout:
+            factor = self.slowdown_gravity
         
-        self.direction.y += self.increase_vertical_direction
-        if self.direction.y > self.max_vertical_speed:
-            self.direction.y = self.max_vertical_speed
+        self.direction.y += GRAVITY * factor
+        if self.direction.y > MAX_VERTICAL_SPEED:
+            self.direction.y = MAX_VERTICAL_SPEED
 
 
