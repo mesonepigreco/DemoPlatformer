@@ -1,5 +1,5 @@
 import pygame
-from Modules.Settings import DATA_DIR, SCALE_FACTOR, TILE_SIZE
+from Settings import DATA_DIR, SCALE_FACTOR, TILE_SIZE
 import lamp
 import os, sys
 

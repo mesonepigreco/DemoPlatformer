@@ -1,6 +1,5 @@
 import pygame
-import pytest
-import player, world
+import world
 
 from Settings import *
 
@@ -8,6 +7,8 @@ from Settings import *
 pygame.init()
 
 screen = pygame.display.set_mode(WINDOW_SIZE)
+pygame.display.set_caption("Deep into the darkness")
+pygame.display.set_icon(pygame.image.load(os.path.join("data", "miner", "miner.png")))
 
 clock = pygame.time.Clock()
 pygame.mixer.init()
