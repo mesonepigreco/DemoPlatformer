@@ -67,6 +67,7 @@ class Lamp(GlowingSprite):
         self.rect.midbottom = (x + TILE_SIZE // 2, y + TILE_SIZE)
 
         self.oil = 50
+        self.image = self.frames[0]
 
         #self.glowing_color = (40, 30, 30)
         self.glowing_radius = self.oil * RADIUS_OIL_SCALE

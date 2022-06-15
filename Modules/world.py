@@ -2,6 +2,7 @@ import pygame
 import player
 import custom_group, lamp, target, enemy
 import ui
+import menu
 from Settings import *
 
 
@@ -41,6 +42,11 @@ class World:
         # The font properties
         self.font_small = pygame.font.Font(FONT_LOCATION, FONT_SIZE_SMALL)
         self.font_title = pygame.font.Font(FONT_LOCATION, FONT_SIZE_TITLE)
+
+        # Menu 
+        self.menu = menu.Menu(["Start game", "Quit"])
+        self.display_menu = True
+        
         
         self.player = None
         self.tiles = []
@@ -63,8 +69,8 @@ class World:
 
         # Music
         self.music = pygame.mixer.Sound(os.path.join(DATA_DIR, "main-theme.wav"))
-        self.music.set_volume(0.4)
-        self.music.play(-1)
+        self.music.set_volume(0.1)
+        #self.music.play(-1)
 
     def __setattr__(self, __name, __value):
         if __name == "player":
@@ -138,12 +144,23 @@ class World:
                 self.player.push_back(sprite.push_back, sprite.direction.x - self.player.direction.x, 
                     sprite.steal_oil)
 
+    def check_pause(self):
+        keys = pygame.key.get_pressed()
+        ticks = pygame.time.get_ticks()
+        if (keys[pygame.K_RETURN]) and ticks - self.menu.check_return > self.menu.return_timeout:
+            self.menu.check_return = ticks
+            self.pause = True
+            self.display_menu = True
+            pygame.mixer.fadeout(1234)
 
     def update(self, screen):
         # Update all 
 
-        if not self.pause:
+
+        if not self.pause and not self.display_menu:
+            self.check_pause()
             self.visible_group.update(self.collision_group)
+        
         
         self.check_enemy_collision()
 
@@ -160,6 +177,21 @@ class World:
 
         # Update the User Interface
         self.ui.draw()
+
+
+        if self.display_menu:
+            result = self.menu.update()
+            print("RESULT:", result)
+            if result is not None:
+                if result == "Start game":
+                    self.display_menu = False
+                    self.pause = False
+
+                    # Play again the music
+                    self.music.play(-1)
+                elif result == "Quit":
+                    return "Quit"
+            self.menu.draw(screen)
 
         # Check death
         if self.check_death():
@@ -208,6 +240,7 @@ class World:
         self.visible_group.empty()
         self.collectable_group.empty()
         self.winning_group.empty()
+        self.enemy_group.empty()
 
         self.player = None
 
@@ -295,7 +328,7 @@ class World:
         total_lamps = 0
         with open(data_file, "r") as fp:
             for yindex, line in enumerate(fp.readlines()):
-                for xindex, character in enumerate(line.strip()):
+                for xindex, character in enumerate(line):
                     x = xindex * TILE_SIZE
                     y = yindex * TILE_SIZE
 
@@ -304,9 +337,7 @@ class World:
                     if y > maxy: 
                         maxy = y
 
-                    if character == "0":
-                        continue
-                    elif character == "1":
+                    if character == "1":
                         Tile(x, y, self.visible_group, self.collision_group)
                     elif character == "P":
                         self.player = player.Player(x, y, self.visible_group, self.glowing_group)
@@ -317,6 +348,8 @@ class World:
                         target.Target(x, y, self.visible_group, self.glowing_group, self.winning_group)
                     elif character == "S":
                         enemy.Slug(x, y, self.visible_group, self.enemy_group)
+                    else:
+                        continue
 
         #if self.player is not None:
         #    self.visible_group.move_to_front(self.player)
@@ -332,7 +365,7 @@ class World:
 
         
         for x in range(offset_tiles):
-            for y in range(maxy // TILE_SIZE):
+            for y in range(maxy // TILE_SIZE + 1):
                 Tile(-(x+1) * TILE_SIZE, y * TILE_SIZE, self.visible_group, self.collision_group)
                 Tile(maxx+ (x+1) * TILE_SIZE, y * TILE_SIZE, self.visible_group, self.collision_group)
 

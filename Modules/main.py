@@ -13,7 +13,7 @@ clock = pygame.time.Clock()
 pygame.mixer.init()
 
 my_world = world.World()
-my_world.create_world()
+my_world.create_world() 
 
 running= True
 while running:
@@ -23,7 +23,9 @@ while running:
         if event.type == pygame.QUIT:
             running = False
 
-    my_world.update(screen)
+    event = my_world.update(screen)
+    if event == "Quit":
+        running = False
     
     pygame.display.flip()
     

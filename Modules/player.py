@@ -56,7 +56,7 @@ class Player(lamp.GlowingSprite):
 
         # Moovment
         self.direction = pygame.math.Vector2(0,0)
-        self.speed = 5
+        self.speed = 4.3
         self.jump_speed = 5.6
 
         self.is_going_left = False
@@ -87,6 +87,8 @@ class Player(lamp.GlowingSprite):
         self.sound_death = pygame.mixer.Sound(os.path.join(DATA_DIR, "sounds", "death.wav"))
         self.sound_collect = pygame.mixer.Sound(os.path.join(DATA_DIR, "sounds", "collect.wav"))
 
+        self.sound_death.set_volume(0.1)
+        self.sound_hit.set_volume(0.4)
     
 
 
@@ -102,7 +104,6 @@ class Player(lamp.GlowingSprite):
         
         self.animations[animation_name] = frames
             
-
 
 
     def update_rect(self):
@@ -198,9 +199,9 @@ class Player(lamp.GlowingSprite):
                 is_colliding = True
 
                 if left_right:
-                    if self.is_going_right:
+                    if self.direction.x > 0:
                         self.hitbox.right = sprite.rect.left
-                    elif self.is_going_left:
+                    elif self.direction.x < 0:
                         self.hitbox.left = sprite.rect.right
                 else:
                     if self.direction.y > 0:
