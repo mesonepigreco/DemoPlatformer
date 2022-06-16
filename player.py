@@ -48,8 +48,7 @@ class Player(lamp.GlowingSprite):
 
         # Hitbox and rect
         self.rect = self.image.get_rect()
-        self.rect.centerx = x
-        self.rect.centery = y
+        self.rect.topleft = (x, y)
 
         self.hitbox = self.rect.inflate(-20, 0)
 
@@ -87,6 +86,9 @@ class Player(lamp.GlowingSprite):
         self.sound_collect = pygame.mixer.Sound(os.path.join(DATA_DIR, "sounds", "collect.wav"))
 
         self.sound_death.set_volume(0.1)
+        self.sound_boing.set_volume(0.3)
+        self.sound_jump.set_volume(0.4)
+        self.sound_collect.set_volume(0.5)
         self.sound_hit.set_volume(0.4)
     
 
@@ -227,7 +229,8 @@ class Player(lamp.GlowingSprite):
         ticks = pygame.time.get_ticks()
 
         if ticks - self.trigger_stun > self.stun_timeout:
-            self.sound_hit.play()
+            if self.remaining_oil > 0:
+                self.sound_hit.play()
             print("BEFORE DIRECTION:", self.direction.x)
             self.direction.x = force * math.copysign(1, direction)
             print("AFTER DIRECTION", self.direction.x)

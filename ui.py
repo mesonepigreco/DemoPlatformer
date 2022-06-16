@@ -44,7 +44,7 @@ class UserInterface():
             return(255, 0, 0)
 
 
-    def draw(self):
+    def draw(self, level):
         oil_rect = self.bar_rect.copy()
         oil_rect.width = self.player.remaining_oil / 100 * self.bar_rect.width
         if oil_rect.width > self.bar_rect.width:
@@ -66,6 +66,17 @@ class UserInterface():
         text_rect = text_surface.get_rect()
         text_rect.midbottom = self.lamp_rect.midbottom
         text_rect.y += 20
+
+        self.screen.blit(text_surface, text_rect)
+
+
+        # Add the Level text
+        text_surface = self.font.render("Level " + str(level + 1), False, (255, 255, 255), (0,0,0))
+        text_surface.set_colorkey((0,0,0))
+        text_rect = text_surface.get_rect()
+        text_rect.topright = (WINDOW_SIZE[0], 0)
+        text_rect.y += 16
+        text_rect.x -= 16
 
         self.screen.blit(text_surface, text_rect)
 

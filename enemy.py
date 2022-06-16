@@ -140,8 +140,26 @@ class Slug(Enemy):
 
         self.frame_count += self.animation_speed
 
-
     
+
+class EnemySpawner:
+
+    def __init__(self, x, y, visible_group, enemy_group):
+        self.timer = 5000
+        self.trigger = 0
+
+        self.visible_group = visible_group
+        self.enemy_group = enemy_group
+        self.x = x
+        self.y = y
+
+    def update(self):
+        ticks = pygame.time.get_ticks()
+
+        if ticks - self.trigger > self.timer:
+            slug = Slug(self.x, self.y, self.visible_group, self.enemy_group)
+            self.trigger = ticks
+
 
 
 

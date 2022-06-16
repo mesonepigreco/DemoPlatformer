@@ -25,6 +25,11 @@ class Menu:
     def update(self):
         keys = pygame.key.get_pressed()
         ticks = pygame.time.get_ticks()
+
+        if not keys[pygame.K_UP] and not keys[pygame.K_DOWN] and not keys[pygame.K_RETURN]:
+            self.trigger = 0
+            self.check_return = 0
+
         if ticks - self.trigger > self.timeout:
             
             if (keys[pygame.K_UP]):
@@ -69,16 +74,29 @@ class Menu:
             if i > 0:
                 total_size_y += self.offset_y
         
+        # Display the focus and the text
         current_y = 0
         for i, surf in enumerate(text_surfaces):
             rect = surf.get_rect()
-            rect.midtop = (width // 2 ,height // 2 - total_size_y // 2 + current_y)
-            current_y += rect.height + self.offset_y
+            outer_rect = rect.inflate(32, 32)
+            inner_rect = outer_rect.inflate(-16, -16)
+            midtop = (width // 2, height // 2 - total_size_y // 2 + current_y)
 
             if self.focus == i:
-                pygame.draw.rect(screen, (255, 0, 0), rect)
+                rect_surface = pygame.Surface((outer_rect.width, outer_rect.height))
+                rect_surface.fill((255, 0, 0))
+                inner_rect.x = 8
+                inner_rect.y = 8
+                pygame.draw.rect(rect_surface, (0, 0, 0), inner_rect)
+                rect_surface.set_colorkey((0,0,0))
+                outer_rect.midtop = midtop
+                outer_rect.y -= 16
+                screen.blit(rect_surface, outer_rect)
 
 
+            rect.midtop = midtop
+            current_y += rect.height + self.offset_y
+            outer_rect.center = rect.center
             screen.blit(surf, rect)
 
 

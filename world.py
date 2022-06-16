@@ -44,9 +44,15 @@ class World:
         self.font_title = pygame.font.Font(FONT_LOCATION, FONT_SIZE_TITLE)
 
         # Menu 
-        self.menu = menu.Menu(["Start game", "Quit"])
+        self.menu = menu.Menu(["Start game", "Load", "Save", "Quit"])
         self.display_menu = True
-        
+
+        self.loading_surface = pygame.Surface(WINDOW_SIZE)
+        self.loading_surface.fill((0,0,0))
+        text_surf = self.font_title.render("Loading level ...", False, (255, 255, 255), (0,0,0))
+        text_rect = text_surf.get_rect()
+        text_rect.center = (WINDOW_SIZE[0]//2, WINDOW_SIZE[1] // 2)
+        self.loading_surface.blit(text_surf, text_rect)
         
         self.player = None
         self.tiles = []
@@ -60,6 +66,7 @@ class World:
         self.collectable_group = pygame.sprite.Group()
         self.winning_group = pygame.sprite.Group()
         self.enemy_group = pygame.sprite.Group()
+        self.spawners = []
 
         # General info
         self.pause = False
@@ -80,6 +87,19 @@ class World:
         super().__setattr__(__name, __value)
         
     
+    def save(self):
+        with open(SAVE_FILE, "w") as fp:
+            fp.write(str(self.level))
+
+
+    def load(self):
+        if not os.path.exists(SAVE_FILE):
+            self.save()
+
+        with open(SAVE_FILE, "r") as fp:
+            self.level = int(fp.read().strip())
+
+        self.start_level()
 
         
 
@@ -151,7 +171,9 @@ class World:
             self.menu.check_return = ticks
             self.pause = True
             self.display_menu = True
-            pygame.mixer.fadeout(1234)
+            pygame.mixer.fadeout(400)
+        if not keys[pygame.K_RETURN]:
+            self.menu.check_return = 0
 
     def update(self, screen):
         # Update all 
@@ -160,6 +182,9 @@ class World:
         if not self.pause and not self.display_menu:
             self.check_pause()
             self.visible_group.update(self.collision_group)
+
+            for spawner in self.spawners:
+                spawner.update()
         
         
         self.check_enemy_collision()
@@ -176,12 +201,11 @@ class World:
         self.update_glowing(screen)
 
         # Update the User Interface
-        self.ui.draw()
+        self.ui.draw(self.level)
 
 
         if self.display_menu:
             result = self.menu.update()
-            print("RESULT:", result)
             if result is not None:
                 if result == "Start game":
                     self.display_menu = False
@@ -189,6 +213,21 @@ class World:
 
                     # Play again the music
                     self.music.play(-1)
+                elif result == "Save":
+                    self.save()
+
+                    self.display_menu = False
+                    self.pause = False
+
+                    # Play again the music
+                    self.music.play(-1)
+                elif result == "Load":
+                    self.display_menu = False
+                    self.pause = False
+
+                    # Play again the music
+                    self.music.play(-1)
+                    self.load()
                 elif result == "Quit":
                     return "Quit"
             self.menu.draw(screen)
@@ -245,6 +284,10 @@ class World:
         self.player = None
 
         level_file = os.path.join(DATA_DIR, "level_{}.txt".format(self.level))
+        
+        screen = pygame.display.get_surface()
+        screen.blit(self.loading_surface, (0,0))
+        pygame.display.flip()
         self.create_world(level_file)
 
 
@@ -269,7 +312,7 @@ class World:
         screen.blit(new_darkness, (0,0), special_flags = pygame.BLEND_MULT)
         #screen.blit(glowing_surface, pos, special_flags = pygame.BLEND_ADD)
 
-    def update_tile_images(self):
+    def update_tile_images(self, maxx):
         for tile in self.visible_group:
             if tile.kind != "tile":
                 continue
@@ -283,7 +326,13 @@ class World:
                     continue
 
                 delta_x = tile.rect.x - secondtile.rect.x
+
+                if delta_x <= - 2*TILE_SIZE or delta_x >= 2*TILE_SIZE:
+                    continue
+
                 delta_y = tile.rect.y - secondtile.rect.y
+                if delta_y <= - 2*TILE_SIZE or delta_y >= 2*TILE_SIZE:
+                    continue
 
                 if abs(delta_x - TILE_SIZE) < EPSILON and abs(delta_y) < EPSILON:
                     has_left = True
@@ -348,6 +397,8 @@ class World:
                         target.Target(x, y, self.visible_group, self.glowing_group, self.winning_group)
                     elif character == "S":
                         enemy.Slug(x, y, self.visible_group, self.enemy_group)
+                    elif character == "O":
+                        self.spawners.append(enemy.EnemySpawner(x, y, self.visible_group, self.enemy_group))
                     else:
                         continue
 
@@ -355,7 +406,7 @@ class World:
         #    self.visible_group.move_to_front(self.player)
 
         # Fill the border with tiles
-        for x in range(offset_tiles):
+        for x in range(-1, offset_tiles):
             for y in range(offset_tiles):
                 # Create the tiles in the corners
                 Tile(-(x+1) * TILE_SIZE, -(y+1) * TILE_SIZE, self.visible_group, self.collision_group)
@@ -364,10 +415,10 @@ class World:
                 Tile(maxx + (x + 1) * TILE_SIZE, maxy + (1 + y) * TILE_SIZE, self.visible_group, self.collision_group)
 
         
-        for x in range(offset_tiles):
+        for x in range( offset_tiles):
             for y in range(maxy // TILE_SIZE + 1):
                 Tile(-(x+1) * TILE_SIZE, y * TILE_SIZE, self.visible_group, self.collision_group)
-                Tile(maxx+ (x+1) * TILE_SIZE, y * TILE_SIZE, self.visible_group, self.collision_group)
+                Tile(maxx+ (x) * TILE_SIZE, y * TILE_SIZE, self.visible_group, self.collision_group)
 
         for y in range(offset_tiles):
             for x in range(maxx // TILE_SIZE):
@@ -375,7 +426,7 @@ class World:
                 Tile(x * TILE_SIZE, maxy + (1 + y) * TILE_SIZE, self.visible_group, self.collision_group)
 
 
-        self.update_tile_images()
+        self.update_tile_images(maxx)
 
         self.ui.reset_counter(total_lamps)
 
